@@ -3,7 +3,7 @@
   [ "either"
   , "foreign-object"
   , "integers"
-  , "node-process"
+  , "argonaut"
   , "simple-text"
   ]
 , packages = ./packages.dhall

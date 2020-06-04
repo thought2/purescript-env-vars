@@ -1,12 +1,12 @@
 module EnvVars where
 
 import Prelude
+import Data.Argonaut (Json)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Foreign.Object (Object)
 import Foreign.Object as Object
-import Node.Process as Process
 import SimpleText as SimpleText
 
 lookupEnv ::
@@ -31,5 +31,7 @@ lookupEnv { name, default, parse } obj = case Object.lookup name obj, default of
 
 getEnvVars :: forall a. (Object String -> Either String a) -> Effect (Either String a)
 getEnvVars parseEnvVars = do
-  envObj <- Process.getEnv
+  envObj <- getEnv
   parseEnvVars envObj # pure
+
+foreign import getEnv :: Effect Json
