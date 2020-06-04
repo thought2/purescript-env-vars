@@ -1,9 +1,10 @@
 { name = "env-vars"
 , dependencies =
-  [ "either"
+  [ "argonaut"
+  , "either"
   , "foreign-object"
   , "integers"
-  , "argonaut"
+  , "record-extra"
   , "simple-text"
   ]
 , packages = ./packages.dhall

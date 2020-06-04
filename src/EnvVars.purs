@@ -1,5 +1,5 @@
 module EnvVars
-  ( fromRecord, class GEnvVars, gEnvVars
+  ( fromRecord, class GEnvVars, gEnvVars, env, parseRecord
   ) where
 
 import Prelude
@@ -11,11 +11,17 @@ import Effect (Effect)
 import Foreign.Object (Object)
 import Foreign.Object as Object
 import Record as Record
+import Record.Extra (class SequenceRecord, sequenceRecord)
 import SimpleText as SimpleText
 import Type.Data.Symbol (class IsSymbol, SProxy(SProxy), reflectSymbol)
 import Type.Equality (class TypeEquals)
 import Type.Row (class Cons, class Lacks)
 import Type.RowList (kind RowList, Nil, Cons, RLProxy(RLProxy), class RowToList)
+
+env ::
+  forall a.
+  String -> Maybe a -> (String -> Either String a) -> Object String -> Either String a
+env name default parse = lookupEnv { name, default, parse }
 
 lookupEnv ::
   forall a.
@@ -83,3 +89,12 @@ fromRecord ::
   GEnvVars spec parsed specRL =>
   Record spec -> Object String -> Either String (Record parsed)
 fromRecord spec obj = gEnvVars obj spec (RLProxy :: RLProxy specRL)
+
+parseRecord ::
+  forall spec specRL' parsed spec' specRL.
+  RowToList spec specRL =>
+  SequenceRecord specRL spec () spec' (Function (Object String)) =>
+  RowToList spec' specRL' =>
+  SequenceRecord specRL' spec' () parsed (Either String) =>
+  Record spec -> Object String -> Either String (Record parsed)
+parseRecord r x = sequenceRecord r # (_ $ x) # sequenceRecord
