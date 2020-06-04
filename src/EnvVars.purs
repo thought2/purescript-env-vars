@@ -1,13 +1,21 @@
-module EnvVars where
+module EnvVars
+  ( fromRecord, class GEnvVars, gEnvVars
+  ) where
 
 import Prelude
-import Data.Argonaut (Json)
+import Data.Argonaut (Json, decodeJson)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
+import Data.Tuple.Nested (type (/\), (/\))
 import Effect (Effect)
 import Foreign.Object (Object)
 import Foreign.Object as Object
+import Record as Record
 import SimpleText as SimpleText
+import Type.Data.Symbol (class IsSymbol, SProxy(SProxy), reflectSymbol)
+import Type.Equality (class TypeEquals)
+import Type.Row (class Cons, class Lacks)
+import Type.RowList (kind RowList, Nil, Cons, RLProxy(RLProxy), class RowToList)
 
 lookupEnv ::
   forall a.
@@ -31,7 +39,47 @@ lookupEnv { name, default, parse } obj = case Object.lookup name obj, default of
 
 getEnvVars :: forall a. (Object String -> Either String a) -> Effect (Either String a)
 getEnvVars parseEnvVars = do
-  envObj <- getEnv
-  parseEnvVars envObj # pure
+  envJson <- getEnv
+  case decodeJson envJson of
+    Right envObj -> parseEnvVars envObj # pure
+    Left _ -> pure $ Left "Cannot parse environment object"
 
 foreign import getEnv :: Effect Json
+
+class GEnvVars (spec :: # Type) (parsed :: # Type) (specRL :: RowList) | specRL -> parsed spec where
+  gEnvVars :: Object String -> Record spec -> RLProxy specRL -> Either String (Record parsed)
+
+instance gEnvVarsNil :: GEnvVars spec () Nil where
+  gEnvVars _ _ _ = Right {}
+
+instance gEnvVarsCons ::
+  ( GEnvVars spec parsed' specRL
+  , IsSymbol sym
+  , TypeEquals a' (Maybe a /\ (String -> Either String a))
+  , Cons sym (Maybe a /\ (String -> Either String a)) spec' spec
+  , Lacks sym spec'
+  , Cons sym a parsed' parsed
+  , Lacks sym parsed'
+  ) =>
+  GEnvVars spec parsed (Cons sym a' specRL) where
+  gEnvVars obj spec _ =
+    let
+      sProxy = SProxy :: SProxy sym
+
+      name = reflectSymbol sProxy
+
+      default /\ parse = Record.get sProxy spec
+
+      parseTail = gEnvVars obj spec (RLProxy :: RLProxy specRL)
+    in
+      do
+        tail <- parseTail
+        result <- lookupEnv { name, default, parse } obj
+        pure $ Record.insert sProxy result tail
+
+fromRecord ::
+  forall spec specRL parsed.
+  RowToList spec specRL =>
+  GEnvVars spec parsed specRL =>
+  Record spec -> Object String -> Either String (Record parsed)
+fromRecord spec obj = gEnvVars obj spec (RLProxy :: RLProxy specRL)
