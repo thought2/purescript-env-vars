@@ -1,5 +1,11 @@
 module EnvVars
-  ( fromRecord, class GEnvVars, gEnvVars, env, parseRecord
+  ( fromRecord
+  , class GEnvVars
+  , gEnvVars
+  , env
+  , parseRecord
+  , lookupEnv
+  , getEnvVars
   ) where
 
 import Prelude
